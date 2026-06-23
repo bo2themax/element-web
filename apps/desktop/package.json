@@ -107,7 +107,8 @@
         "vitest": "catalog:"
     },
     "hakDependencies": {
-        "matrix-seshat": "4.3.0"
+        "matrix-seshat": "4.3.0",
+        "element-translation": "1.0.0"
     },
     "nx": {
         "includedScripts": [

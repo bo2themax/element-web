@@ -17,6 +17,7 @@ import {
     Beacon,
     getBeaconInfoIdentifier,
     EventType,
+    MsgType,
     FeatureSupport,
     Thread,
     M_POLL_KIND_DISCLOSED,
@@ -31,7 +32,14 @@ import { type RoomContextType, TimelineRenderingType } from "../../../../../src/
 import { canEditContent } from "../../../../../src/utils/EventUtils";
 import { copyPlaintext, getSelectedText } from "../../../../../src/utils/strings";
 import MessageContextMenu from "../../../../../src/components/views/context_menus/MessageContextMenu";
-import { makeBeaconEvent, makeBeaconInfoEvent, makeLocationEvent, stubClient } from "../../../../test-utils";
+import {
+    makeBeaconEvent,
+    makeBeaconInfoEvent,
+    makeLocationEvent,
+    mockPlatformPeg,
+    stubClient,
+    unmockPlatformPeg,
+} from "../../../../test-utils";
 import dispatcher from "../../../../../src/dispatcher/dispatcher";
 import SettingsStore from "../../../../../src/settings/SettingsStore";
 import { ReadPinsEventId } from "../../../../../src/components/views/right_panel/types";
@@ -431,6 +439,93 @@ describe("MessageContextMenu", () => {
             expect(quoteButton).toBeFalsy();
 
             isSelectionWithinSingleTextBody.mockRestore();
+        });
+    });
+
+    describe("translate button", () => {
+        afterEach(() => {
+            unmockPlatformPeg();
+        });
+
+        const queryTranslateButton = (): Element | null => document.querySelector('li[aria-label="Translate"]');
+
+        it("shows translate button for a text message when the platform supports native translation", () => {
+            mockPlatformPeg({ supportsNativeTranslation: () => true });
+            createRightClickMenuWithContent(createMessageEventContent("hello"));
+            expect(queryTranslateButton()).toBeTruthy();
+        });
+
+        it("does not show translate button when the platform does not support native translation", () => {
+            mockPlatformPeg({ supportsNativeTranslation: () => false });
+            createRightClickMenuWithContent(createMessageEventContent("hello"));
+            expect(queryTranslateButton()).toBeFalsy();
+        });
+
+        it("shows translate button for notice and emote messages", () => {
+            mockPlatformPeg({ supportsNativeTranslation: () => true });
+            for (const msgtype of [MsgType.Notice, MsgType.Emote]) {
+                const { unmount } = createRightClickMenuWithContent({ msgtype, body: "hello" });
+                expect(queryTranslateButton()).toBeTruthy();
+                unmount();
+            }
+        });
+
+        it("does not show translate button for non-text message types without a selection", () => {
+            mockPlatformPeg({ supportsNativeTranslation: () => true });
+            mocked(getSelectedText).mockReturnValue("");
+            createRightClickMenuWithContent({ msgtype: MsgType.Image, body: "image.png" });
+            expect(queryTranslateButton()).toBeFalsy();
+        });
+
+        it("does not show translate button for an empty message body", () => {
+            mockPlatformPeg({ supportsNativeTranslation: () => true });
+            mocked(getSelectedText).mockReturnValue("");
+            createRightClickMenuWithContent(createMessageEventContent("   "));
+            expect(queryTranslateButton()).toBeFalsy();
+        });
+
+        it("shows translate button for an in-body selection even on a non-text message type", () => {
+            mockPlatformPeg({ supportsNativeTranslation: () => true });
+            mocked(getSelectedText).mockReturnValue("selected words");
+            const isSelectionWithinSingleTextBody = jest
+                .spyOn(MessageContextMenu.prototype as any, "isSelectionWithinSingleTextBody")
+                .mockReturnValue(true);
+
+            createRightClickMenuWithContent({ msgtype: MsgType.Image, body: "image.png" });
+            expect(queryTranslateButton()).toBeTruthy();
+
+            isSelectionWithinSingleTextBody.mockRestore();
+        });
+
+        it("translates the whole message body when there is no selection", () => {
+            const platform = mockPlatformPeg({ supportsNativeTranslation: () => true, translate: jest.fn() });
+            mocked(getSelectedText).mockReturnValue("");
+
+            createRightClickMenuWithContent(createMessageEventContent("hello world"));
+            fireEvent.mouseDown(queryTranslateButton()!);
+
+            expect(platform.translate).toHaveBeenCalledWith("hello world", expect.anything());
+        });
+
+        it("translates only the selected text when there is an in-body selection", () => {
+            const platform = mockPlatformPeg({ supportsNativeTranslation: () => true, translate: jest.fn() });
+            mocked(getSelectedText).mockReturnValue("just this");
+            const isSelectionWithinSingleTextBody = jest
+                .spyOn(MessageContextMenu.prototype as any, "isSelectionWithinSingleTextBody")
+                .mockReturnValue(true);
+            const mockRange = { getBoundingClientRect: () => new DOMRect(1, 2, 3, 4) } as unknown as Range;
+            const getSelectionSpy = jest.spyOn(window, "getSelection").mockReturnValue({
+                rangeCount: 1,
+                getRangeAt: () => mockRange,
+            } as unknown as Selection);
+
+            createRightClickMenuWithContent(createMessageEventContent("hello world"));
+            fireEvent.mouseDown(queryTranslateButton()!);
+
+            expect(platform.translate).toHaveBeenCalledWith("just this", expect.anything());
+
+            isSelectionWithinSingleTextBody.mockRestore();
+            getSelectionSpy.mockRestore();
         });
     });
 

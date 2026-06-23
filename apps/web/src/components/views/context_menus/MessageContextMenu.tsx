@@ -15,6 +15,7 @@ import {
     MatrixEventEvent,
     RoomMemberEvent,
     EventType,
+    MsgType,
     RelationType,
     type Relations,
     Thread,
@@ -41,9 +42,11 @@ import {
     ShareIcon,
     CopyIcon,
     TreeIcon,
+    PublicIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import { MatrixClientPeg } from "../../../MatrixClientPeg";
+import PlatformPeg from "../../../PlatformPeg";
 import dis from "../../../dispatcher/dispatcher";
 import { _t } from "../../../languageHandler";
 import Modal from "../../../Modal";
@@ -333,6 +336,50 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
                 text: "\n" + quotedText + "\n\n ",
                 timelineRenderingType: this.context.timelineRenderingType,
             });
+        }
+        this.closeMenu();
+    };
+
+    private onTranslateClick = (): void => {
+        const platform = PlatformPeg.get();
+        if (!platform) {
+            this.closeMenu();
+            return;
+        }
+
+        const selectedText = getSelectedText();
+        const selection = window.getSelection();
+
+        let text: string;
+        let rect: DOMRectReadOnly;
+        if (
+            selectedText &&
+            selectedText.trim().length > 0 &&
+            this.isSelectionWithinSingleTextBody() &&
+            selection &&
+            selection.rangeCount > 0
+        ) {
+            // Translate just the selected portion of the message, anchored at the selection.
+            text = selectedText;
+            rect = selection.getRangeAt(0).getBoundingClientRect();
+        } else {
+            // Translate the whole message body, anchored at the message element. We avoid a
+            // zero-size rect because NSPopover treats an empty rect as "anchor to the whole
+            // view", which would center the popover instead of pointing at the message.
+            text = this.props.mxEvent.getContent().body ?? "";
+            const eventId = this.props.mxEvent.getId();
+            const tile = eventId ? document.querySelector(`[data-event-id="${CSS.escape(eventId)}"]`) : null;
+            const target = tile?.querySelector(".mx_EventTile_line") ?? tile;
+            if (target) {
+                rect = target.getBoundingClientRect();
+            } else {
+                const { left = 0, top = 0 } = this.props;
+                rect = new DOMRect(left, top, 1, 1);
+            }
+        }
+
+        if (text.trim().length > 0) {
+            platform.translate(text, rect);
         }
         this.closeMenu();
     };
@@ -633,6 +680,28 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
             );
         }
 
+        let translateButton: JSX.Element | undefined;
+        const messageBody = mxEvent.getContent().body;
+        const isTranslatableMessage =
+            mxEvent.getType() === EventType.RoomMessage &&
+            typeof messageBody === "string" &&
+            messageBody.trim().length > 0 &&
+            [MsgType.Text, MsgType.Notice, MsgType.Emote].includes(mxEvent.getContent().msgtype as MsgType);
+        const hasTranslatableSelection =
+            !!selectedText && selectedText.trim().length > 0 && this.isSelectionWithinSingleTextBody();
+        // Not gated on `rightClick` so it also appears in the hover "Options" (⋯) menu, not just
+        // the right-click menu. The selection path only applies to the right-click case anyway.
+        if (PlatformPeg.get()?.supportsNativeTranslation() && (hasTranslatableSelection || isTranslatableMessage)) {
+            translateButton = (
+                <IconizedContextMenuOption
+                    icon={<PublicIcon />}
+                    label={_t("action|translate")}
+                    triggerOnMouseDown={true} // use onMouseDown so the selection isn't cleared when we click
+                    onClick={this.onTranslateClick}
+                />
+            );
+        }
+
         let editButton: JSX.Element | undefined;
         if (rightClick && canEditContent(cli, mxEvent)) {
             editButton = (
@@ -698,11 +767,12 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
         }
 
         let nativeItemsList: JSX.Element | undefined;
-        if (copyButton || quoteButton || copyLinkButton) {
+        if (copyButton || quoteButton || translateButton || copyLinkButton) {
             nativeItemsList = (
                 <IconizedContextMenuOptionList>
                     {copyButton}
                     {quoteButton}
+                    {translateButton}
                     {copyLinkButton}
                 </IconizedContextMenuOptionList>
             );
