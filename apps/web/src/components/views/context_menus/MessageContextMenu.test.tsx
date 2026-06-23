@@ -20,6 +20,7 @@ import {
     Beacon,
     getBeaconInfoIdentifier,
     EventType,
+    MsgType,
     FeatureSupport,
     Thread,
     M_POLL_KIND_DISCLOSED,
@@ -27,7 +28,14 @@ import {
 } from "matrix-js-sdk/src/matrix";
 import { PollStartEvent } from "matrix-js-sdk/src/extensible_events_v1/PollStartEvent";
 import userEvent from "@testing-library/user-event";
-import { makeBeaconEvent, makeBeaconInfoEvent, makeLocationEvent, stubClient } from "test-utils";
+import {
+    makeBeaconEvent,
+    makeBeaconInfoEvent,
+    makeLocationEvent,
+    mockPlatformPeg,
+    stubClient,
+    unmockPlatformPeg,
+} from "test-utils";
 import { createMessageEventContent } from "test-utils/events";
 import { copyPlainTextToClipboard } from "@element-hq/element-web-shared-utils";
 
@@ -440,6 +448,64 @@ describe("MessageContextMenu", () => {
             expect(quoteButton).toBeFalsy();
 
             isSelectionWithinSingleTextBody.mockRestore();
+        });
+    });
+
+    describe("translate button", () => {
+        beforeEach(() => {
+            vi.clearAllMocks();
+        });
+
+        afterEach(() => {
+            unmockPlatformPeg();
+        });
+
+        const queryTranslateButton = (): Element | null => document.querySelector('li[aria-label="Translate"]');
+
+        it("shows translate button when there is a selection and the platform supports native translation", () => {
+            mockPlatformPeg({ supportsNativeTranslation: () => true });
+            vi.mocked(getSelectedText).mockReturnValue("hello");
+            createRightClickMenuWithContent(createMessageEventContent("hello world"));
+            expect(queryTranslateButton()).toBeTruthy();
+        });
+
+        it("does not show translate button when there is no selection", () => {
+            mockPlatformPeg({ supportsNativeTranslation: () => true });
+            vi.mocked(getSelectedText).mockReturnValue("");
+            createRightClickMenuWithContent(createMessageEventContent("hello world"));
+            expect(queryTranslateButton()).toBeFalsy();
+        });
+
+        it("does not show translate button when the platform does not support native translation", () => {
+            mockPlatformPeg({ supportsNativeTranslation: () => false });
+            vi.mocked(getSelectedText).mockReturnValue("hello");
+            createRightClickMenuWithContent(createMessageEventContent("hello world"));
+            expect(queryTranslateButton()).toBeFalsy();
+        });
+
+        it("shows translate button for any message type when there is a selection", () => {
+            mockPlatformPeg({ supportsNativeTranslation: () => true });
+            vi.mocked(getSelectedText).mockReturnValue("selected words");
+            // Not a text message (e.g. an image), but with a selection it should still be offered.
+            createRightClickMenuWithContent({ msgtype: MsgType.Image, body: "image.png" });
+            expect(queryTranslateButton()).toBeTruthy();
+        });
+
+        it("translates the selected text, anchored at the selection", () => {
+            const platform = mockPlatformPeg({ supportsNativeTranslation: () => true, translate: vi.fn() });
+            vi.mocked(getSelectedText).mockReturnValue("just this");
+            const mockRange = { getBoundingClientRect: () => new DOMRect(1, 2, 3, 4) } as unknown as Range;
+            const getSelectionSpy = vi.spyOn(window, "getSelection").mockReturnValue({
+                rangeCount: 1,
+                getRangeAt: () => mockRange,
+            } as unknown as Selection);
+
+            createRightClickMenuWithContent(createMessageEventContent("hello world"));
+            fireEvent.mouseDown(queryTranslateButton()!);
+
+            expect(platform.translate).toHaveBeenCalledWith("just this", expect.anything());
+
+            getSelectionSpy.mockRestore();
         });
     });
 
