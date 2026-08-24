@@ -35,11 +35,11 @@ describe("buildTitleBarCss", () => {
         expect(bar).toMatch(/position:\s*fixed/);
     });
 
-    it("styles the title bar with the canvas background and separator tokens", () => {
-        // Matches the design spec: bg/canvas/default fill with a 1px separator/primary hairline below.
+    it("styles the title bar with the canvas background and no separator", () => {
+        // bg/canvas/default fill, drawn flush with the content: no hairline under the band.
         const bar = ruleBlock(css, "body::before");
         expect(bar).toMatch(/background:\s*var\(--cpd-color-bg-canvas-default\b/);
-        expect(bar).toMatch(/border-bottom:\s*1px\s+solid\s+var\(--cpd-color-separator-primary\b/);
+        expect(bar).not.toMatch(/border-bottom/);
     });
 
     it("makes the title bar a drag handle", () => {

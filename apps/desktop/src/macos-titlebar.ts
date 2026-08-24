@@ -20,9 +20,9 @@ export const TITLE_BAR_HEIGHT_PX = 32;
  *
  * `electron-main.ts` uses `titleBarStyle: "hidden"`, which keeps the native window frame, rounded
  * corners and traffic lights but removes the native bar surface. This CSS paints that surface: a
- * full-width strip at the top of the window in the canvas background colour with a hairline
- * separator underneath, and pushes the app content below it. The strip is the window's drag
- * handle.
+ * full-width strip at the top of the window in the canvas background colour, and pushes the app
+ * content below it. The strip is the window's drag handle. It is deliberately drawn without a
+ * separator so the band reads as part of the content surface.
  *
  * The drag region is built from `-webkit-app-region` rects only: elements keep the default value
  * (`none`) and are ignored unless they explicitly set `drag`/`no-drag`. So the band stays draggable
@@ -42,7 +42,7 @@ export function buildTitleBarCss(): string {
                 padding-top: ${TITLE_BAR_HEIGHT_PX}px !important;
             }
 
-            /* The title bar itself: canvas background with a hairline separator below */
+            /* The title bar itself: canvas background, drawn flush with the content below */
             body::before {
                 content: "";
                 position: fixed;
@@ -53,7 +53,6 @@ export function buildTitleBarCss(): string {
                 box-sizing: border-box;
                 /* Fallback colours for pages loaded without the app themes (e.g. the error view) */
                 background: var(--cpd-color-bg-canvas-default, #ffffff);
-                border-bottom: 1px solid var(--cpd-color-separator-primary, #e1e6ec);
                 -webkit-app-region: drag;
                 -webkit-user-select: none;
             }
