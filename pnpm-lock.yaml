@@ -395,6 +395,9 @@ importers:
       electron-window-state:
         specifier: ^5.0.3
         version: 5.0.3
+      element-translation:
+        specifier: workspace:*
+        version: link:hak/element-translation/native
       minimist:
         specifier: ^1.2.6
         version: 1.2.8
@@ -487,6 +490,8 @@ importers:
       pkcs11js:
         specifier: ^2.1.6
         version: 2.1.7
+
+  apps/desktop/hak/element-translation/native: {}
 
   apps/web:
     dependencies:

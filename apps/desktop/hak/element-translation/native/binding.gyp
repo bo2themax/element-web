@@ -13,6 +13,9 @@
                             "MACOSX_DEPLOYMENT_TARGET": "11.0",
                             "OTHER_CPLUSPLUSFLAGS": ["-std=c++17"]
                         }
+                    },
+                    {
+                        "type": "none"
                     }
                 ]
             ]

@@ -10,6 +10,8 @@ packages:
     - "packages/*"
     - "modules"
     - "modules/*"
+    # In-repo native addon for the desktop app, compiled against Electron by electron-builder
+    - "apps/desktop/hak/element-translation/native"
 
 catalog:
     # typescript
