@@ -5,5 +5,8 @@
     "main": "index.cjs",
     "private": true,
     "gypfile": true,
+    "scripts": {
+        "install": "echo element-translation is compiled for Electron by electron-builder"
+    },
     "license": "AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial"
 }
